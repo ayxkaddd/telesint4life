@@ -3,3 +3,4 @@ venv/
 
 config.py
 tg.session
+tg.session.bak

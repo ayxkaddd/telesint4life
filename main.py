@@ -34,7 +34,7 @@ technologies = [
     "IntelliJ IDEA"
 ]
 
-ADDITIONS = ["talk", "group", "comm", "community"]
+ADDITIONS = ["talk", "group", "comm", "community", "club"]
 COUNTRIES = ["UA", "RU", "IN", "Україна", "Украина", "Россия", "India"]
 
 OTHER_STUFF = ["мафія", "мафия"]
@@ -72,7 +72,6 @@ def parse_bot_response(bot_response):
 def build_queries():
     technologies_with_additions = []
     technologies_with_countries = []
-    technologies_with_additions_and_countries = []
 
     for tech in technologies:
         for addition in ADDITIONS:
@@ -82,11 +81,7 @@ def build_queries():
         for country in COUNTRIES:
             technologies_with_countries.append(f"{tech} {country}")
 
-    for tech in technologies_with_additions:
-        for country in COUNTRIES:
-            technologies_with_additions_and_countries.append(f"{tech} {country}")
-
-    combined_list = technologies + technologies_with_additions + technologies_with_countries + technologies_with_additions_and_countries + OTHER_STUFF
+    combined_list = technologies + technologies_with_additions + technologies_with_countries + OTHER_STUFF
 
     return combined_list
 
@@ -102,7 +97,7 @@ async def send_message_to_bot(client, bot_username, message):
             if msg.id != sent_message.id:
                 return msg.text
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
 
 
 async def search_and_submit(client, query):
@@ -110,33 +105,44 @@ async def search_and_submit(client, query):
     telesint = 'telesint_bot'
     message = f'/groups {query}'
 
-    response = await send_message_to_bot(client, tgdb, message)
-    if response == "Sorry, your search returned no results.":
-        print(f"no results for {query}")
+    tgdb_response = await send_message_to_bot(client, tgdb, message)
+    if tgdb_response == "Sorry, your search returned no results.":
+        print(f"[-] no results for {query}")
         return
-    elif response == "You have reached the daily search limit. Contact support with /support for more information or try again tomorrow.":
-        print("you have hit a daily rate limit in tgdb_bot. exiting...")
+    elif tgdb_response == "You have reached the daily search limit. Contact support with /support for more information or try again tomorrow.":
+        print("[-] you have hit a daily rate limit in tgdb_bot. exiting...")
         sys.exit()
 
-    results = parse_bot_response(response)
-    print(f"got {len(results)} results for {query}")
+    results = parse_bot_response(tgdb_response)
+    print(f"[+] got {len(results)} results for {query}")
     for result in results:
         if result['members'] >= 15:
             username = result['username']
-            print(f"submiting {username}...")
-            response = await send_message_to_bot(client, telesint, username)
-            if "🗃 Наличие в базе: ✅" not in response:
-                print(f"{username} is not in the database. +3 requests")
+            print(f"[*] submiting {username}...")
+            telesint_response = await send_message_to_bot(client, telesint, username)
+            if "🗃 Наличие в базе: ✅" not in telesint_response:
+                print(f"[+] {username} is not in the database. +3 requests")
+            elif telesint_response == "Вы отправляете запросы слишком часто. Пожалуйста, подождите немного.":
+                print("[-] got rate limited")
+            elif telesint_response == "Не существует Telegram аккаунта с таким именем":
+                print("[-] invalid link")
+            else:
+                print(f"[-] {username} already in database")
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(2.1)
 
 
 async def main(client):
-    god_dawg = build_queries()
+    built_queries = build_queries()
+    used_queries = []
 
     for _ in range(50):
-        query = random.choice(god_dawg)
+        query = random.choice(built_queries)
+        if query in used_queries:
+            print("[*] query was already used. getting a new query")
+            query = random.choise(built_queries)
         await search_and_submit(client, query)
+        used_queries.append(query)
 
 
 if __name__ == "__main__":
